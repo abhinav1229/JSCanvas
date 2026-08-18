@@ -7,13 +7,15 @@ let debugEditor = document.getElementById("console");
 // Player
 // --------------------
 
-let playerX = 100;
-let playerY = 100;
+const player = {
+    x: 100,
+    y: 100,
 
-const playerWidth = 50;
-const playerHeight = 100;
+    width: 50,
+    height: 100,
 
-const playerSpeed = 300;
+    speed: 300
+}
 
 
 // --------------------
@@ -62,19 +64,19 @@ function update(deltaTime) {
         directionY /= length;
     }
 
-    const velocityX = directionX * playerSpeed;
-    const velocityY = directionY * playerSpeed;
+    const velocityX = directionX * player.speed;
+    const velocityY = directionY * player.speed;
 
-    playerX += velocityX * deltaTime;
-    playerY += velocityY * deltaTime;
+    player.x += velocityX * deltaTime;
+    player.y += velocityY * deltaTime;
 
-    playerX = clamp(playerX, 0, canvas.width - playerWidth);
-    playerY = clamp(playerY, 0, canvas.height - playerHeight);
+    player.x = clamp(player.x, 0, canvas.width - player.width);
+    player.y = clamp(player.y, 0, canvas.height - player.height);
 
     debugEditor.innerHTML =
-        "X: " + playerX.toFixed(2) +
+        "X: " + player.x.toFixed(2) +
         "<br>" +
-        "Y: " + playerY.toFixed(2);
+        "Y: " + player.y.toFixed(2);
 }
 
 
@@ -94,10 +96,10 @@ function draw() {
     ctx.fillStyle = "red";
 
     ctx.fillRect(
-        playerX,
-        playerY,
-        playerWidth,
-        playerHeight
+        player.x,
+        player.y,
+        player.width,
+        player.height
     );
 }
 
