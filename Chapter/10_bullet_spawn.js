@@ -162,6 +162,35 @@ class Enemy extends GameObject {
     }
 }
 
+
+class Bullet extends GameObject {
+    constructor(x, y) {
+        super(x, y, 10, 10);
+
+        this.speed = 500;
+        this.isDead = false;
+    }
+
+    update(deltaTime) {
+        this.x += this.speed * deltaTime;
+
+        if (this.x > canvas.width) {
+            this.isDead = true;
+        }
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = "yellow";
+
+        ctx.fillRect(
+            this.x,
+            this.y,
+            this.width,
+            this.height
+        );
+    }
+}
+
 // --------------------
 // Player
 // --------------------
@@ -172,6 +201,14 @@ const enemies = [];
 for (let i = 0; i < 10; i++) {
     enemies.push(new Enemy(600, i * 55));
 }
+
+const bullets = [];
+bullets.push(
+    new Bullet(
+        player.x + player.width,
+        player.y + player.height / 2
+    )
+)
 
 // --------------------
 // Update
@@ -191,9 +228,19 @@ function update(deltaTime) {
         }
     }
 
+    for (const bullet of bullets) {
+        bullet.update(deltaTime);
+    }
+
     for (let i = enemies.length - 1; i >= 0; i--) {
         if (enemies[i].isDead) {
             enemies.splice(i, 1);
+        }
+    }
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        if (bullets[i].isDead) {
+            bullets.splice(i, 1);
         }
     }
 }
@@ -215,6 +262,10 @@ function draw() {
         if (!enemy.isDead) {
             enemy.draw(ctx);
         }
+    }
+
+    for (const bullet of bullets) {
+        bullet.draw(ctx);
     }
 }
 
