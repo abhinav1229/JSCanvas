@@ -1,0 +1,932 @@
+I am learning HTML5 Canvas + JavaScript from a GAME-DEVELOPER perspective.
+
+IMPORTANT TEACHING STYLE:
+- I come from a Unity/C# game-development background.
+- Keep lessons practical rather than theoretical.
+- Introduce concepts incrementally by building one small game.
+- Do NOT dump huge amounts of theory.
+- Whenever introducing a NEW concept, briefly explain:
+  1. What it is.
+  2. What it is called in game development/software architecture.
+  3. What pattern/approach it represents, if applicable.
+  4. Why it is useful.
+- Then focus primarily on practical implementation.
+- When giving me a task, prefer letting me implement it myself first.
+- Review my code and explain mistakes rather than immediately replacing everything.
+- I want to understand the architecture, not just make the code work.
+
+CURRENT PROJECT:
+A small 2D top-down/shooter-style Canvas game.
+
+CURRENT ARCHITECTURE:
+
+Canvas:
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+Debug UI:
+    const debugEditor = document.getElementById("console");
+
+INPUT:
+    const keys = {};
+
+    window.addEventListener("keydown", function (event) {
+        keys[event.code] = true;
+    });
+
+    window.addEventListener("keyup", function (event) {
+        keys[event.code] = false;
+    });
+
+We switched from event.key to event.code so inputs are:
+    ArrowRight
+    ArrowLeft
+    ArrowUp
+    ArrowDown
+    KeyW
+    KeyA
+    KeyS
+    KeyD
+    Space
+    KeyR
+
+GAME LOOP:
+    let lastTime = null;
+
+    function gameLoop(timestamp) {
+        if (lastTime === null) {
+            lastTime = timestamp;
+        }
+
+        const deltaTime = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+
+        game.update(deltaTime);
+        game.draw();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    requestAnimationFrame(gameLoop);
+
+IMPORTANT:
+- We use requestAnimationFrame.
+- We calculate deltaTime in seconds.
+- Movement uses speed * deltaTime so it is frame-rate independent.
+- We learned the basic loop:
+      INPUT → UPDATE → DRAW → next frame
+
+MATH UTILITY:
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+We use clamp to keep objects inside boundaries.
+
+--------------------------------------------------
+CONCEPTS ALREADY LEARNED
+--------------------------------------------------
+
+1. CANVAS BASICS
+- <canvas> is a drawing surface.
+- getContext("2d") gives the 2D drawing context.
+- ctx.fillRect(x, y, width, height)
+- fillStyle controls drawing color.
+- clearRect() clears the previous frame.
+- Canvas coordinates begin at top-left:
+      (0, 0)
+      x increases right
+      y increases downward.
+
+Unity mental model:
+    Canvas drawing surface ≈ low-level rendering surface
+    ctx ≈ drawing API
+
+2. GAME LOOP
+Concept:
+    update game state, then render it every frame.
+
+Pattern:
+    game loop
+
+Structure:
+    update(deltaTime)
+    draw()
+    requestAnimationFrame(gameLoop)
+
+3. INPUT STATE
+Instead of moving directly inside keydown:
+    keys[event.code] = true/false
+
+Then update reads the current input state.
+
+Pattern:
+    input state / polling-style input
+
+4. DELTA TIME
+We learned why:
+    playerX += 5
+is bad because movement depends on FPS.
+
+Instead:
+    playerX += speed * deltaTime
+
+This produces pixels-per-second style movement.
+
+5. DIRECTION + VELOCITY
+Initially input directly changed position.
+We changed architecture to:
+
+    Keyboard
+       ↓
+    directionX/Y
+       ↓
+    normalize
+       ↓
+    velocityX/Y
+       ↓
+    position
+       ↓
+    clamp
+       ↓
+    draw
+
+Direction:
+    right = (1,0)
+    left  = (-1,0)
+    up    = (0,-1)
+    down  = (0,1)
+
+6. NORMALIZATION
+We learned diagonal movement is faster if direction = (1,1).
+
+Normalize:
+    length = sqrt(x*x + y*y)
+    x /= length
+    y /= length
+
+This makes movement speed consistent in all directions.
+
+Concept:
+    vector normalization
+
+7. OBJECT-ORIENTED GAME OBJECT
+We changed from scattered global player variables:
+
+    playerX
+    playerY
+    playerWidth
+    playerHeight
+    playerSpeed
+
+to:
+
+    const player = {
+        x,
+        y,
+        width,
+        height,
+        speed,
+        update(),
+        draw()
+    }
+
+Then learned this / object methods.
+
+8. JAVASCRIPT CLASSES
+Created:
+
+    class GameObject
+    class Player extends GameObject
+    class Enemy extends GameObject
+    class Bullet extends GameObject
+
+Learned:
+    constructor()
+    new
+    extends
+    super()
+    this
+    overriding methods
+
+Unity mental model:
+    class ≈ reusable blueprint
+    instance ≈ instantiated object
+    update() ≈ Update-like behavior
+    draw() ≈ custom rendering behavior
+
+9. INHERITANCE
+GameObject contains common:
+    x
+    y
+    width
+    height
+    update()
+    draw()
+    isColliding()
+
+Player/Enemy/Bullet inherit from it and specialize behavior.
+
+10. GAME OBJECT ARRAYS
+Initially manually:
+    enemy1
+    enemy2
+    enemy3
+    ...
+
+Then:
+    const enemies = [];
+
+    enemies.push(new Enemy(...));
+
+Update:
+    for (const enemy of enemies) {
+        enemy.update(deltaTime);
+    }
+
+Draw:
+    for (const enemy of enemies) {
+        enemy.draw(ctx);
+    }
+
+Concept:
+    entity collection / object management
+
+11. OBJECT LIFECYCLE
+We introduced:
+    isDead
+
+Typical lifecycle:
+    spawn → alive → interact → dead → removed
+
+Enemy:
+    health
+    isDead
+    takeDamage()
+
+Bullet:
+    isDead
+
+12. SAFE ARRAY REMOVAL
+We learned not to splice while iterating forward with for...of.
+
+Instead:
+    for (let i = array.length - 1; i >= 0; i--) {
+        if (array[i].isDead) {
+            array.splice(i, 1);
+        }
+    }
+
+Concept:
+    safe reverse iteration during mutation
+
+13. AABB COLLISION
+Added GameObject.isColliding(other):
+
+    isColliding(other) {
+        const isOverlappingX =
+            this.x < other.x + other.width &&
+            this.x + this.width > other.x;
+
+        const isOverlappingY =
+            this.y < other.y + other.height &&
+            this.y + this.height > other.y;
+
+        return isOverlappingX && isOverlappingY;
+    }
+
+Concept:
+    AABB (Axis-Aligned Bounding Box) collision
+
+Important:
+- Collision needs overlap on BOTH X and Y.
+- This method belongs in GameObject because Player, Enemy, Bullet can all collide.
+
+14. ENEMY HEALTH / DAMAGE
+Enemy has:
+    this.health = 3;
+    this.isDead = false;
+
+Enemy:
+    takeDamage(damage) {
+        if (this.damageTimer > 0) {
+            return;
+        }
+
+        this.health -= damage;
+        this.health = clamp(this.health, 0, 3);
+
+        this.damageTimer = this.damageCooldown;
+
+        if (this.health <= 0) {
+            this.isDead = true;
+        }
+    }
+
+Enemy damage cooldown:
+    this.damageCooldown = 0.5;
+    this.damageTimer = 0;
+
+update():
+    if (this.damageTimer > 0) {
+        this.damageTimer -= deltaTime;
+    }
+
+Concept:
+    cooldown/timer-based interaction
+
+15. BULLETS
+Bullet extends GameObject.
+
+Current concept:
+    bullet moves right
+    bullet dies when outside canvas
+
+Basic structure:
+    class Bullet extends GameObject {
+        constructor(x, y) {
+            super(x, y, 10, 10);
+
+            this.speed = 500;
+            this.isDead = false;
+        }
+
+        update(deltaTime) {
+            this.x += this.speed * deltaTime;
+
+            if (this.x > canvas.width) {
+                this.isDead = true;
+            }
+        }
+
+        draw(ctx) {
+            ctx.fillStyle = "yellow";
+            ctx.fillRect(
+                this.x,
+                this.y,
+                this.width,
+                this.height
+            );
+        }
+    }
+
+16. BULLET ↔ ENEMY COLLISION
+Game checks:
+    for each bullet
+        for each enemy
+            if collision:
+                enemy.takeDamage(1)
+                bullet.isDead = true
+                break
+
+The break is important so one bullet doesn't damage multiple enemies in the same frame.
+
+17. PLAYER SHOOTING
+Player has:
+    this.fireCooldown = 0.2;
+    this.fireTimer = 0;
+
+Every update:
+    if (this.fireTimer > 0) {
+        this.fireTimer -= deltaTime;
+    }
+
+Then:
+    if (keys["Space"] && this.fireTimer <= 0) {
+        ...
+        this.fireTimer = this.fireCooldown;
+    }
+
+Concept:
+    fire-rate / cooldown system
+
+18. ENEMY SPAWNING
+Enemies are no longer manually listed.
+
+Game has:
+    this.enemies = [];
+    this.enemySpawnTimer = 0;
+    this.enemySpawnCooldown = 1;
+
+spawnEnemy():
+    const y = getRandomIntInclusive(0, canvas.height - 50);
+    this.enemies.push(new Enemy(canvas.width, y));
+
+Update:
+    this.enemySpawnTimer -= deltaTime;
+
+    if (this.enemySpawnTimer <= 0) {
+        this.spawnEnemy();
+        this.enemySpawnTimer = this.enemySpawnCooldown;
+    }
+
+Concept:
+    timed spawning / spawn system
+
+Enemy dies when fully leaves left side:
+    if (this.x + this.width < 0) {
+        this.isDead = true;
+    }
+
+19. PLAYER HEALTH / GAME OVER
+Player:
+    this.health = 5;
+    this.isDead = false;
+
+takeDamage():
+    this.health -= damage;
+
+    if (this.health <= 0) {
+        this.health = 0;
+        this.isDead = true;
+    }
+
+Game detects:
+    if (this.player.isDead) {
+        this.gameState = "gameOver";
+        return;
+    }
+
+20. GAME STATE
+We introduced:
+    this.gameState
+
+Currently states:
+    "start"
+    "playing"
+    "gameOver"
+
+This is the beginning of a:
+    Finite State Machine (FSM)
+
+Current flow:
+    START
+      ↓ Space
+    PLAYING
+      ↓ player dies
+    GAME OVER
+      ↓ R
+    START
+
+Game.update() currently handles states like:
+
+    if (this.gameState === "gameOver") {
+        if (keys["KeyR"]) {
+            this.restart();
+        }
+        return;
+    }
+
+    if (this.gameState === "start") {
+        if (keys["Space"]) {
+            this.gameState = "playing";
+        }
+        return;
+    }
+
+    // playing logic
+
+21. GAME RESTART / RESET
+Game has:
+    restart() {
+        this.player = new Player(100, 100);
+
+        this.enemies = [];
+        this.bullets = [];
+
+        this.gameState = "start";
+
+        this.enemySpawnTimer = 0;
+    }
+
+Concept:
+    game state reset / reinitialization
+
+We intentionally recreate Player and replace arrays instead of manually resetting every property.
+
+22. GAME CLASS / OWNERSHIP
+We moved global game state into:
+
+    class Game {
+        constructor() {
+            this.player = new Player(100, 100);
+
+            this.enemies = [];
+            this.bullets = [];
+
+            this.gameState = "start";
+
+            this.enemySpawnTimer = 0;
+            this.enemySpawnCooldown = 1;
+        }
+
+        spawnEnemy() { ... }
+
+        update(deltaTime) { ... }
+
+        draw() { ... }
+
+        restart() { ... }
+    }
+
+Then:
+
+    const game = new Game();
+
+Game loop:
+    game.update(deltaTime);
+    game.draw();
+
+Concept:
+    central game/world manager
+    ownership of runtime game state
+
+23. PLAYER → GAME COMMUNICATION
+Important architectural issue:
+Player should NOT directly manipulate:
+    game.bullets
+    global bullets array
+
+We changed shooting concept to return an action.
+
+Player.update() now creates:
+    const actions = [];
+
+When shooting:
+    actions.push({
+        type: "shoot",
+        bullet: this.shoot()
+    });
+
+At end:
+    return actions;
+
+Game receives:
+    const actions = this.player.update(deltaTime);
+
+    for (const action of actions) {
+        if (action.type === "shoot") {
+            this.bullets.push(action.bullet);
+        }
+    }
+
+Concept:
+    object communication / event-action communication
+    lightweight Command/Event-style pattern
+
+Why useful:
+    Player doesn't need to know how Game stores bullets.
+    Game remains the owner of world collections.
+
+--------------------------------------------------
+CURRENT CLASS RESPONSIBILITIES
+--------------------------------------------------
+
+GameObject:
+    properties:
+        x
+        y
+        width
+        height
+
+    methods:
+        update(deltaTime)
+        draw(ctx)
+        isColliding(other)
+
+Player extends GameObject:
+    properties:
+        speed
+        health
+        isDead
+        fireCooldown
+        fireTimer
+
+    methods:
+        update(deltaTime)
+        draw(ctx)
+        shoot()
+        takeDamage(damage)
+
+Enemy extends GameObject:
+    properties:
+        speed
+        health
+        isDead
+        damageCooldown
+        damageTimer
+
+    methods:
+        update(deltaTime)
+        draw(ctx)
+        takeDamage(damage)
+
+Bullet extends GameObject:
+    properties:
+        speed
+        isDead
+
+    methods:
+        update(deltaTime)
+        draw(ctx)
+
+Game:
+    properties:
+        player
+        enemies[]
+        bullets[]
+        gameState
+        enemySpawnTimer
+        enemySpawnCooldown
+
+    methods:
+        spawnEnemy()
+        update(deltaTime)
+        draw()
+        restart()
+
+--------------------------------------------------
+CURRENT GAME FLOW
+--------------------------------------------------
+
+Input:
+    Keyboard event
+       ↓
+    keys object
+       ↓
+    Player.update()
+
+Player movement:
+    input
+      ↓
+    direction
+      ↓
+    normalize
+      ↓
+    velocity
+      ↓
+    position
+      ↓
+    clamp
+
+Player shooting:
+    Space
+      ↓
+    fire cooldown
+      ↓
+    Player creates Bullet
+      ↓
+    Player returns action
+      ↓
+    Game receives action
+      ↓
+    Game adds bullet to bullets[]
+
+Enemy:
+    spawn at right side
+      ↓
+    moves left
+      ↓
+    bullet collision
+      ↓
+    takeDamage
+      ↓
+    health 0
+      ↓
+    isDead
+      ↓
+    removed from enemies[]
+
+Player:
+    enemy collision
+      ↓
+    takeDamage
+      ↓
+    health 0
+      ↓
+    isDead
+      ↓
+    Game changes state to gameOver
+
+Game state:
+    start
+      ↓ Space
+    playing
+      ↓ player dead
+    gameOver
+      ↓ R
+    restart
+      ↓
+    start
+
+--------------------------------------------------
+CURRENT CODE STRUCTURE / IMPORTANT DETAILS
+--------------------------------------------------
+
+Canvas:
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    let debugEditor = document.getElementById("console");
+
+Input:
+    const keys = {};
+
+    window.addEventListener("keydown", function (event) {
+        keys[event.code] = true;
+    });
+
+    window.addEventListener("keyup", function (event) {
+        keys[event.code] = false;
+    });
+
+Collision implementation is in GameObject:
+    isColliding(other) {
+        const isOverlappingX =
+            this.x < other.x + other.width &&
+            this.x + this.width > other.x;
+
+        const isOverlappingY =
+            this.y < other.y + other.height &&
+            this.y + this.height > other.y;
+
+        return isOverlappingX && isOverlappingY;
+    }
+
+Important design choice:
+    isColliding belongs in GameObject, not Player.
+
+Player movement currently uses:
+    Arrow keys and WASD
+
+Input codes:
+    ArrowRight / KeyD
+    ArrowLeft / KeyA
+    ArrowUp / KeyW
+    ArrowDown / KeyS
+    Space
+    KeyR
+
+Player bullet spawn:
+    new Bullet(
+        this.x + this.width,
+        this.y + this.height / 2 - 5
+    )
+
+Game.update() roughly:
+    if gameOver:
+        if R restart
+        return
+
+    if start:
+        if Space -> playing
+        return
+
+    actions = player.update(deltaTime)
+    process shoot actions
+
+    if player dead:
+        gameState = gameOver
+        return
+
+    spawn enemies according to timer
+
+    update enemies
+    enemy-player collision
+
+    update bullets
+    bullet-enemy collision
+
+    reverse-loop remove dead enemies
+    reverse-loop remove dead bullets
+
+Game.draw():
+    clear canvas
+    draw player
+    draw enemies
+    draw bullets
+    if gameOver:
+        draw GAME OVER
+
+--------------------------------------------------
+CURRENT LEARNING POSITION
+--------------------------------------------------
+
+We are currently working on the "Start Screen" side of the state machine.
+
+The Game.update() already supports:
+    "start"
+    "playing"
+    "gameOver"
+
+But Game.draw() currently only has special rendering for:
+    "gameOver"
+
+It still draws player/enemies/bullets during "start".
+
+NEXT TASK:
+    Update Game.draw() so the rendering follows gameState.
+
+Desired:
+    START:
+        show something like:
+            CANVAS SHOOTER
+            Press SPACE to Start
+
+        do NOT need to draw active gameplay objects.
+
+    PLAYING:
+        draw player
+        draw enemies
+        draw bullets
+
+    GAME OVER:
+        draw gameplay scene
+        display:
+            GAME OVER
+            Press R to Restart
+
+Likely draw structure:
+    draw() {
+        ctx.clearRect(...);
+
+        if (this.gameState === "start") {
+            // draw start screen
+            return;
+        }
+
+        // draw gameplay objects
+
+        if (this.gameState === "gameOver") {
+            // draw game over overlay/text
+        }
+    }
+
+--------------------------------------------------
+TOPICS NOT YET COVERED
+--------------------------------------------------
+
+Potential next topics after Start Screen:
+- Proper state handling / cleaner FSM implementation
+- Better input abstraction
+- Restart/reset architecture improvements
+- Player/enemy shooting and gameplay polish
+- Score
+- UI / Canvas text
+- Camera
+- sprite/image rendering
+- sprite animation
+- particles
+- sound concepts
+- object pools / performance
+- game-world vs screen coordinates
+- rendering order / layers
+- collision improvements
+- fixed timestep vs variable timestep
+- game loop architecture
+- scene management
+- possibly a small complete game
+
+IMPORTANT:
+Do NOT jump too far ahead. Continue incrementally from the current Start Screen/FSM work.
+
+--------------------------------------------------
+UNITY COMPARISONS THAT HAVE BEEN USEFUL
+--------------------------------------------------
+
+Canvas game loop:
+    update + draw ≈ Unity Update + rendering
+
+GameObject class:
+    similar conceptually to a Unity GameObject, but much simpler.
+
+Player/Enemy/Bullet classes:
+    similar to specialized game entities/components, but JavaScript architecture is not identical to Unity.
+
+requestAnimationFrame:
+    browser-driven frame scheduling.
+
+AABB:
+    common simple 2D rectangle collision method.
+
+Finite State Machine:
+    useful for menu / playing / pause / game over states.
+
+Cooldown timers:
+    common game mechanic for fire rate, damage interval, spawn interval, etc.
+
+--------------------------------------------------
+IMPORTANT LEARNING PREFERENCE
+--------------------------------------------------
+
+Keep explanations practical and concise.
+When adding a new game-dev concept, explicitly but briefly mention:
+    "Concept:"
+    "Pattern:"
+    "Why useful:"
+
+Do not overwhelm me with theory.
+
+Continue reviewing my code rather than assuming it is wrong.
+If something is correct, explicitly tell me.
+If there is a bug, explain why and let me fix it when practical.
+I prefer implementing the next step myself after understanding the concept.
