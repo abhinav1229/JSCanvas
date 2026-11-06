@@ -19,6 +19,7 @@ const playerSpeed = 300;
 // --------------------
 // Input
 // --------------------
+// Fever Issue
 
 const keys = {};
 
